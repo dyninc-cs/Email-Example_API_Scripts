@@ -1,19 +1,23 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # Credentials are read in from a configuration file in the same directory. 
 # The file is named config.cfg and takes the following format:
-#
-# customer: [customer]
-# username: [username]
-# password: [password]
+# customer: [apikey]
 #
 
 use warnings;
 use strict;
 use Config::Simple;
 use LWP::UserAgent;
+use LWP::Protocol::https;
 use URI;
 use URI::QueryParam;
 use JSON;
+
+# getBounce, other way to do that is to design it so that it handles at itself. function getbounce, gets all bounces first and puts them into a data structure
+# Dyn Message Manager, not management
+# in email use textbody and htmlbody
+# Make it so that you can send to multiple senders. Take array and call the function multiple times to send to each sender--body contents stay the same
+
 
 # Create config reader
 my $config = new Config::Simple();
@@ -27,10 +31,6 @@ my $apiKey = $configOptions{'apikey'} or do {
 	print "API key required in config.cfg for API login\n";
 	exit;
 };
-# Optioanl: read in username from config.cfg
-my $username = $configOptions{'username'};
-# Optional: read in password from config.cfg
-my $password = $configOptions{'password'};
 
 #####POST#####
 # Create or modify an account
@@ -39,8 +39,8 @@ sub createEditAccount {
 	my $uri = 'https://emailapi.dynect.net/rest/json/accounts';
 	my %params = (
 		'apikey' => $apiKey,
-		'username' => $username,
-		'password' => $password,
+		'username' => 'username',
+		'password' => 'password',
 		'companyname' => 'Test Inc.',
 		'phone' => '555-555-5555'
 	);
@@ -62,16 +62,17 @@ sub createEditAccount {
 	my $decode = decode_json($response->content);
 	
 	# Print results
-	if ($decode->{'response'}->{'status'} == 200) {
+	if ($response->is_success) {
 		print "Account succesfully created or modified.";
+		return 1;
 	}
 	# Throw an error message if request is not successful
 	else {
 		print "API Error:\n";
 		print "Status: " . $decode->{'response'}->{'status'} . "\n";
 		print "Message: " . $decode->{'response'}->{'message'} . "\n";
+		return 0;
 	}
-	return;
 }
 
 #####POST#####
@@ -101,14 +102,16 @@ sub addSenders {
 	my $decode = decode_json($response->content);
 	
 	# Print results
-	if ($decode->{'response'}->{'status'} == '200') {
+	if ($response->is_success) {
 		print "Sender added succesfully.\n";
+		return 1;
 	}
 	# Throw an error message if request is not successful
 	else {
 		print "API Error:\n";
 		print "Status: " . $decode->{'response'}->{'status'} . "\n";
 		print "Message: " . $decode->{'response'}->{'message'} . "\n";
+		return 0;
 	}
 	return;
 }
@@ -140,17 +143,18 @@ sub addRecipients {
 	my $decode = decode_json($response->content);
 	
 	# Print results
-	if ($decode->{'response'}->{'status'} == 200) {
+	if ($decode->is_success) {
 		print "Recipient added succesfully.\n";
+		return 1;
 	}
 	# Throw an error message if request is not successful
 	else {
 		print "API Error:\n";
 		print "Status: " . $decode->{'response'}->{'status'} . "\n";
 		print "Message: " . $decode->{'response'}->{'message'} . "\n";
+		return 0;
 	}
-	return;
-}
+}  
 
 #####GET#####
 # Return number of successfully delivered emails
@@ -171,7 +175,7 @@ sub reportDelivered {
  	
  	# Append HTTP query form info to the URI
 	my $uri = 'http://emailapi.dynect.net/rest/json/reports/sent/count?' . $contents;
- 
+
 	# Set up the HTTP request
 	my $request = HTTP::Request->new(GET => $uri);
 	$request->header('content-type' => 'application/json');
@@ -182,16 +186,17 @@ sub reportDelivered {
 	my $decode = decode_json($response->content);
 	
 	# Print results
-	if ($decode->{'response'}->{'status'} == 200) {
+	if ($response->is_success) {
 		print "Messages delivered successfully: " . $decode->{'response'}->{'data'}->{'count'} . "\n";
+		return 1;
 	}
 	# Throw an error message if request is not successful
 	else {
 		print "API Error:\n";
 		print "Status: " . $decode->{'response'}->{'status'} . "\n";
 		print "Message: " . $decode->{'response'}->{'message'} . "\n";
+		return 0;
 	}
-	return;
 }
 
 #####GET#####
@@ -227,7 +232,7 @@ sub reportBounced {
 	my $decode = decode_json($response->content);
 
 	my $count = 0;
-	if ($decode->{'response'}->{'status'} == 200) {
+	if ($response->is_success) {
 		foreach my $bounce ($decode->{'response'}->{'data'}->{'bounces'}[0]) {
 			# Print up to 500 bounce records on success
 			if ($count < 500) {
@@ -238,7 +243,7 @@ sub reportBounced {
 			}
 			else {
 				reportBounced($startIndex + 500);
-				return;
+				return 1;
 			}
 		}
 	}
@@ -247,9 +252,10 @@ sub reportBounced {
 		print "API Error:\n";
 		print "Status: " . $decode->{'response'}->{'status'} . "\n";
 		print "Message: " . $decode->{'response'}->{'message'} . "\n";
+		return 0;
 	}
-	return;
 }
+reportBounced();
 
 #####POST#####
 # Send email with the Dyn Message Manager API
@@ -261,7 +267,8 @@ sub sendEmail {
 		'from' => 'example@example.com',
 		'to' => 'example2@example.com',
 		'subject' => 'Test',
-		'bodytext' => 'Test test test test.'
+		'bodytext' => 'Test test test test.',
+		'bodyhtml' => 'Test test test test.'
 	);
 	
 	# Convert parameters into an HTTP query form, delimeted by &
@@ -281,14 +288,15 @@ sub sendEmail {
 	my $decode = decode_json($response->content);
 	
 	# Print results
-	if ($decode->{'response'}->{'status'} == 200) {
+	if ($response->is_success) {
 		print "Mail sent successfully.\n";
+		return 1;
 	}
 	# Throw an error message if request is not successful
 	else {
 		print "API Error:\n";
 		print "Status: " . $decode->{'response'}->{'status'} . "\n";
 		print "Message: " . $decode->{'response'}->{'message'} . "\n";
+		return 0;
 	}
-	return;
 }
