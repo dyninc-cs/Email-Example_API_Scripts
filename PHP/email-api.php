@@ -1,11 +1,8 @@
-#!/usr/bin/php
+#!/usr/bin/env php
 <?php
 # Credentials are read in from an INI file in the same directory. 
 # The file is named config.ini and takes the following format:
-#
-# customer=[customer]
-# username=[username]
-# password=[password]
+# apikey=[apikey]
 #
 
 # Parse ini file (can fail)
@@ -13,10 +10,6 @@ $ini = parse_ini_file('config.ini') or die;
 
 # Read in apikey from config.cfg or die
 $apiKey = $ini['apikey'] or die("API key required in config.ini for API login\n");
-# Optional: read in username from config.ini
-$username = $ini['username'];
-# Optional: read in password from config.ini
-$password = $ini['password'];
 
 #####POST#####
 # Make a request to the Dyn Message Management API
@@ -51,8 +44,8 @@ function createEditAccount() {
 	$uri = 'https://emailapi.dynect.net/rest/json/accounts';
 	$params = array(
 		'apikey' => $apiKey,
-		'username' => $username,
-		'password' => $password,
+		'username' => 'username',
+		'password' => 'password',
 		'companyname' => 'Examples, Inc.',
 		'phone' => '555-555-5555'
 	);
@@ -67,14 +60,15 @@ function createEditAccount() {
 	# Print results on success
 	if ($result->status == 200) {
 		print "Account modified or created succesfully.\n";
+		return 1;
 	}
 	# Throw an error message if API command is not successful
 	else {
 		print "API Error:\n";
 		print "Status: " . $result->status . "\n";
 		print "Message: " . $result->message . "\n";
+		return 0;
 	}
-	return;
 }
 
 #####POST#####
@@ -99,14 +93,15 @@ function addSenders() {
 	# Print results on success
 	if ($result->status == 200) {
 		print "Sender added succesfully.\n";
+		return 1;
 	}
 	# Throw an error message if API command is not successful
 	else {
 		print "API Error:\n";
 		print "Status: " . $result->status . "\n";
 		print "Message: " . $result->message . "\n";
+		return 0;
 	}
-	return;
 }
 
 #####POST#####
@@ -131,14 +126,15 @@ function addRecipients() {
 	# Print results on success
 	if ($result->status == 200) {
 		print "Recipient added succesfully.\n";
+		return 1;
 	}
 	# Throw an error message if API command is not successful
 	else {
 		print "API Error:\n";
 		print "Status: " . $result->status . "\n";
 		print "Message: " . $result->message . "\n";
+		return 0;
 	}
-	return;
 }
 
 #####GET#####
@@ -166,14 +162,15 @@ function reportDelivered() {
 	# Print results on success
 	if ($result->response->status == 200) {
 		print "Messages delivered successfully: " . $decode->response->data->count . "\n";
+		return 1;
 	}
 	# Throw an error message if API request is not successful
 	else {
 		print "API Error:\n";
 		print "Status: " . $result->status . "\n";
 		print "Message: " . $result->message . "\n";
+		return 0;
 	}
-	return;
 }
 
 #####GET#####
@@ -214,7 +211,7 @@ function reportBounced($startIndex) {
 			# Call the function again with a start index incremented by 500
 			else {
 				reportBounced($startIndex + 500);
-				return;
+				return 1;
 			}
 		}
 	}
@@ -223,8 +220,8 @@ function reportBounced($startIndex) {
 		print "API Error:\n";
 		print "Status: " . $result->status . "\n";
 		print "Message: " . $result->message . "\n";
+		return 0;
 	}
-	return;
 }
 
 #####POST#####
@@ -239,7 +236,8 @@ function sendEmail() {
 		'from' => 'example@example.com',
 		'to' => 'example2@example.com',
 		'subject' => 'Test',
-		'bodytext' => 'Test test test test.'
+		'bodytext' => 'Test test test test.',
+		'bodyhtml' => 'Test test test test.'
 	);
 	
 	# Convert parameters into an HTTP query form, delimeted by &
@@ -254,14 +252,14 @@ function sendEmail() {
 		print "Sender: " . $params['from'];
 		print "Recipient: " . $params['to'];
 		print "Email sent succesfully.\n\n";
+		return 1;
 	}
 	# Throw an error message if API request is not successful
 	else {
 		print "API Error:\n";
 		print "Status: " . $result->status . "\n";
 		print "Message: " . $result->message . "\n";
+		return 0;
 	}
-	return;
 }
-
 ?>
